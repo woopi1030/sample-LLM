@@ -1,5 +1,7 @@
 import os
 from openai import OpenAI
+from datetime import datetime
+import json
 
 # ::::: [def] :::::
 
@@ -20,8 +22,9 @@ def getApiKeyFromFile () -> str:
     except Exception as e:
         raise Exception(f"파일 읽기 중 오류가 발생했습니다: {e}") 
     
+# 시스템 메시지 세팅
 def get_system_message(case):
-    if case == "case1":
+    if case == "sample":
         return """
         당신은 주어진 텍스트를 바탕으로 튜토리얼을 생성하는 AI 어시스턴트입니다.
         텍스트에 어떤 절차를 진행하는 방법에 대한 지침이 포함되어 있다면,
@@ -30,63 +33,119 @@ def get_system_message(case):
 
         텍스트 : 
         """
-    elif case == "case2":
+    elif case == "horoscope":
         return """
-        당신은 기사를 요약하는 AI 어시스턴트인니다.
-        이 작업을 완료하며녀 다음 하위 작업을 수행하십시오:
+        당신은 운세 전문가 AI입니다.
 
-        제공된 기사 내용을 종합적으로 읽고 주요 주제와 핵심 요점을 식별합니다.
-        현재 기사 내용을 요약하여 본직적인 정보와 주요 아이디어를 전달하는 단락 요약을 생성합니다.
-        과정의 각 단계를 출력합니다.
+        아래 두 가지 항목에 대한 오늘의 운세를 JSON 형식으로 생성하십시오:
 
-        기사:
+        1. 띠별 운세 (12간지): 
+        - 각 띠(쥐, 소, 호랑이, 토끼, 용, 뱀, 말, 양, 원숭이, 닭, 개, 돼지)에 대해
+        - 해당 띠에 속하는 주요 출생 연도별 운세도 포함시켜 주세요. (예: 쥐띠 - 1948, 1960, 1972, 1984, 1996)
+
+        2. 별자리 운세:
+        - 양자리, 황소자리, 쌍둥이자리, 게자리, 사자자리, 처녀자리, 천칭자리, 전갈자리, 사수자리, 염소자리, 물병자리, 물고기자리
+
+        반드시 다음 JSON 형태로 응답하세요:
+
+        {
+            "date": "YYYYMMDD",
+            "horoscope": {
+                "chinese_zodiac": {
+                    "쥐": {
+                        "1984": "운세 내용...",
+                        "1996": "운세 내용...",
+                        ...
+                    },
+                    ...
+                },
+                "zodiac_sign": {
+                    "양자리": "운세 내용...",
+                    ...
+                }
+            }
+        }
         """
     else:
         return "not supported system message."
 
+# instructions 세팅
 def get_instructions(case):
-    if case == "case1":
+    if case == "sample":
         return """
         이탈리아 제노바에서 유명한 소스를 준비하려면, 먼저 잣을 구워
         바질과 마늘과 함께 부억 절구에 넣어 굵게 다집니다.
         그런 다음 절구에 오일의 절반을 넣고 소금과 후추로 간을 합니다.
         마지막으로 페스토를 그릇에 옮기고 파르메산 치즈 간것을 넣고 저어줍니다.
         """
-    elif case == "case2":
-        return """
-        순환 신경망, 장단기 기억 및 게이트 순환 신경망은 특히 언어 모델링 및 기계 번역과 같은 시퀀스 모델링 및 변환 문제에서 최첨단 접근 방식으로 확고히 자리 잡았습니다. 
-        그 이후로 수많은 노력들이 순환 언어 모델과 인코더-디코더 아키텍처의 경계를 계속 확장하고 있습니다.
-        순환 모델은 일반적으로 입력 및 출력 시퀀스의 심볼 위치를 따라 계산을 요인화합니다. 
-        계산 시간의 단계에 맞추어 위치를 정렬하면, 이전 숨겨진 상태 ht-1 및 위치 t에 대한 입력의 함수로서 숨겨진 상태 ht의 시퀀스를 생성합니다. 
-        이러한 본질적으로 순차적인 특성은 훈련 예제 내에서 병렬화를 방지하여 더 긴 시퀀스 길이에서 중요해집니다. 
-        메모리 제한이 예제 간 배칭을 제한하기 때문입니다. 
-        최근 작업에서는 팩토라이제이션 트릭 및 조건부 계산을 통해 계산 효율성을 크게 개선하면서 후자의 경우 모델 성능도 개선했습니다. 
-        그러나 순차 계산의 근본적인 제약은 여전히 남아 있습니다.
-        어텐션 메커니즘은 다양한 작업에서 설득력 있는 시퀀스 모델링 및 변환 모델의 필수 요소가 되어 입력 또는 출력 시퀀스의 거리와 관계없이 종속성을 모델링할 수 있게 합니다. 
-        하지만 몇 가지 경우를 제외하고 이러한 어텐션 메커니즘은 순환 네트워크와 함께 사용됩니다.
-        이 작업에서는 반복을 배제하고 입력과 출력을 연결하기 위해 전적으로 어텐션 메커니즘에 의존하는 모델 아키텍처인 트랜스포머를 제안합니다. 
-        트랜스포머는 훨씬 더 많은 병렬 처리가 가능하며, 8개의 P100 GPU에서 12시간 동안 훈련한 후 번역 품질에서 새로운 최첨단에 도달할 수 있습니다.
+    elif case == "horoscope":
+        today = datetime.today().strftime("%Y년 %m월 %d일")
+        return f"""
+        오늘은 {today}입니다. 위의 형식에 맞게 띠별과 별자리별 운세를 제공해주세요.
         """
     else:
         return "not supported instructions"
 
-# ::::: [process] :::::
+# OpenAI API를 사용하여 비용을 계산하는 함수
+def calculate_cost(usage, model="gpt-4o"):
+    if model == "gpt-4o":
+        prompt_cost_per_1k = 0.005
+        completion_cost_per_1k = 0.015
+    else:
+        raise ValueError("지원하지 않는 모델입니다.")
 
-# API Key 세팅
-openai_api_key = getApiKeyFromFile()
+    prompt_tokens = usage.prompt_tokens
+    completion_tokens = usage.completion_tokens
 
-# 클라이언트를 초기화하고 채팅을 완성
-client = OpenAI(api_key=openai_api_key)
+    prompt_cost = (prompt_tokens / 1000) * prompt_cost_per_1k
+    completion_cost = (completion_tokens / 1000) * completion_cost_per_1k
+    total_cost = prompt_cost + completion_cost
 
-case = "case2"
+    return round(total_cost, 6)
 
-response = client.chat.completions.create(
-    model="gpt-4o-mini",
-    messages=[
-        {"role": "system", "content": get_system_message(case)},
-        {"role": "user", "content": get_instructions(case)}
-    ]
-)
+# OpenAI API를 사용하여 오늘의 띠별 및 별자리 운세를 가져오는 함수
+def get_daily_horoscope(case):
+    openai_api_key = getApiKeyFromFile()
+    client = OpenAI(api_key=openai_api_key)
 
-# print(response.choices[0])
-print(response.choices[0].message.content)
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": get_system_message(case)},
+            {"role": "user", "content": get_instructions(case)}
+        ]
+    )
+
+    usage = response.usage
+    print("##### Total costs :", calculate_cost(usage, model="gpt-4o"))
+
+    return response.choices[0].message.content
+
+# respose에서 json 코드 블록이 있다면 제거
+def clean_json_response(text: str) -> str:
+    """
+    OpenAI 응답에서 markdown 코드 블록(```json ... ```)을 제거함
+    """
+    if text.startswith("```json"):
+        text = text.replace("```json", "", 1)
+    elif text.startswith("```"):
+        text = text.replace("```", "", 1)
+
+    text = text.strip()
+
+    if text.endswith("```"):
+        text = text[:-3].strip()
+
+    return text
+
+
+# python 스크립트 실행
+try:
+    result = get_daily_horoscope("horoscope")
+    result_parsed_json = clean_json_response(result)
+
+    parsed = json.loads(result_parsed_json)
+    print(json.dumps(parsed, indent=4, ensure_ascii=False))
+
+except json.JSONDecodeError as e:
+    print("⚠️ JSON 파싱 오류:", e)
