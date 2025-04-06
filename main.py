@@ -84,15 +84,15 @@ def calculate_cost(usage, model="gpt-4o"):
     return round(total_cost, 6)
 
 # OpenAI API를 사용하여 오늘의 띠별 및 별자리 운세를 가져오는 함수
-def get_daily_horoscope(case):
+def get_daily_horoscope():
     openai_api_key = getApiKeyFromFile()
     client = OpenAI(api_key=openai_api_key)
 
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=[
-            {"role": "system", "content": get_system_message(case)},
-            {"role": "user", "content": get_instructions(case)}
+            {"role": "system", "content": get_system_message()},
+            {"role": "user", "content": get_instructions()}
         ]
     )
 
@@ -121,7 +121,7 @@ def clean_json_response(text: str) -> str:
 
 # python 스크립트 실행
 try:
-    result = get_daily_horoscope("horoscope")
+    result = get_daily_horoscope()
     result_parsed_json = clean_json_response(result)
 
     parsed = json.loads(result_parsed_json)
