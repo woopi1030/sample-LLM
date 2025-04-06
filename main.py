@@ -129,5 +129,5 @@ try:
 
     save_contents(parsed)
 
-except json.JSONDecodeError as e:
-    print("⚠️ JSON 파싱 오류:", e)
+except Exception as e:
+    print("오류 발생:", e)
