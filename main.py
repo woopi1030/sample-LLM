@@ -3,6 +3,8 @@ from openai import OpenAI
 from datetime import datetime
 import json
 
+from db import save_contents
+
 # ::::: [def] :::::
 
 # 파일에서 API_KEY 반환
@@ -146,6 +148,8 @@ try:
 
     parsed = json.loads(result_parsed_json)
     print(json.dumps(parsed, indent=4, ensure_ascii=False))
+
+    save_contents(parsed)
 
 except json.JSONDecodeError as e:
     print("⚠️ JSON 파싱 오류:", e)
